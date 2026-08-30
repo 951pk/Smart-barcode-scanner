@@ -1,0 +1,537 @@
+{% extends "base.html" %}
+{% block title %}Smart Barcode Scanner - Inventory Management{% endblock %}
+{% block content %}
+<!-- Top Navbar -->
+<nav class="navbar">
+    <div class="navbar-left">
+        <span class="navbar-brand">📷 Smart Barcode Scanner</span>
+        <span class="navbar-subtitle">Inventory Management</span>
+    </div>
+    <div class="navbar-right">
+        <span class="navbar-user">👤 {{ username }}</span>
+        <a href="{{ url_for('logout') }}" class="btn btn-logout">Logout</a>
+    </div>
+</nav>
+
+<!-- Stats Bar -->
+<div class="stats-bar" id="statsBar">
+    <div class="stat-card">
+        <span class="stat-value" id="statProducts">0</span>
+        <span class="stat-label">Total Products</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value" id="statSales">$0.00</span>
+        <span class="stat-label">Total Sales</span>
+    </div>
+    <div class="stat-card">
+        <span class="stat-value" id="statTransactions">0</span>
+        <span class="stat-label">Transactions</span>
+    </div>
+    <div class="stat-card stat-warning">
+        <span class="stat-value" id="statLowStock">0</span>
+        <span class="stat-label">Low Stock</span>
+    </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+    <button class="tab-btn active" data-tab="inventory">📦 Inventory</button>
+    <button class="tab-btn" data-tab="sales">🛒 Sales</button>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- INVENTORY TAB -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="tab-content active" id="tab-inventory">
+
+    <!-- Add / Update Product -->
+    <div class="card">
+        <h2 class="card-title">Add / Update Product</h2>
+        <form id="productForm" class="product-form">
+            <input type="hidden" id="productId" value="">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="barcode">Barcode</label>
+                    <input type="text" id="barcode" name="barcode" placeholder="Scan or type barcode" required>
+                </div>
+                <div class="form-group">
+                    <label for="name">Product Name</label>
+                    <input type="text" id="name" name="name" placeholder="Product name" required>
+                </div>
+                <div class="form-group">
+                    <label for="category">Category</label>
+                    <input type="text" id="category" name="category" placeholder="e.g. Hair Care">
+                </div>
+                <div class="form-group">
+                    <label for="brand">Brand</label>
+                    <input type="text" id="brand" name="brand" placeholder="e.g. Dabur">
+                </div>
+                <div class="form-group">
+                    <label for="price">Price ($)</label>
+                    <input type="number" id="price" name="price" step="0.01" min="0" placeholder="0.00">
+                </div>
+                <div class="form-group">
+                    <label for="quantity">Quantity</label>
+                    <input type="number" id="quantity" name="quantity" min="0" placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label for="supplier">Supplier</label>
+                    <input type="text" id="supplier" name="supplier" placeholder="Supplier name">
+                </div>
+                <div class="form-group">
+                    <label for="expiry_date">Expiry Date</label>
+                    <input type="date" id="expiry_date" name="expiry_date">
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="saveBtn">💾 Save Product</button>
+                <button type="button" class="btn btn-secondary" id="clearBtn">🧹 Clear Form</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Barcode Scanner -->
+    <div class="card">
+        <h2 class="card-title">📷 Barcode Scanner</h2>
+        <div class="scanner-controls">
+            <button class="btn btn-primary" id="startCameraBtn">📷 Start Camera</button>
+            <button class="btn btn-danger" id="stopCameraBtn" disabled>⏹ Stop Camera</button>
+            <button class="btn btn-success" id="scanAndSaveBtn" disabled>✅ Scan &amp; Save</button>
+            <button class="btn btn-secondary" id="uploadBtn">📁 Upload Image</button>
+            <input type="file" id="imageUpload" accept="image/*" style="display:none">
+        </div>
+        <div class="scanner-status" id="scannerStatus">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">Camera ready. Click "Start Camera" to begin.</span>
+        </div>
+        <div class="camera-container">
+            <video id="cameraFeed" autoplay playsinline></video>
+            <canvas id="canvas" style="display:none"></canvas>
+            <div class="camera-placeholder" id="cameraPlaceholder">
+                <span>📷</span>
+                <p>Camera preview will appear here</p>
+            </div>
+        </div>
+        <div class="scan-result" id="scanResult" style="display:none">
+            <strong>Detected Barcode:</strong> <span id="scanBarcodeValue" class="barcode-value"></span>
+            <span id="scanProductInfo" class="scan-product-info"></span>
+        </div>
+    </div>
+
+    <!-- Product Inventory Table -->
+    <div class="card">
+        <h2 class="card-title">Product Inventory</h2>
+        <div class="table-header">
+            <span>Total Products: <strong id="productCount">0</strong></span>
+            <input type="text" id="searchProduct" class="search-input" placeholder="🔍 Search products...">
+        </div>
+        <div class="table-container">
+            <table class="data-table" id="productTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Barcode</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Brand</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Supplier</th>
+                        <th>Expiry</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="productTableBody">
+                    <tr><td colspan="10" class="loading">Loading products...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!-- SALES TAB -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-sales">
+
+    <!-- Record Sale -->
+    <div class="card">
+        <h2 class="card-title">🛒 Record Sale</h2>
+        <form id="saleForm" class="sale-form">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="saleBarcode">Barcode</label>
+                    <input type="text" id="saleBarcode" name="barcode" placeholder="Scan or type barcode" required>
+                </div>
+                <div class="form-group">
+                    <label for="saleQuantity">Quantity</label>
+                    <input type="number" id="saleQuantity" name="quantity" min="1" value="1" required>
+                </div>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">💰 Record Sale</button>
+                <button type="button" class="btn btn-secondary" id="clearSaleBtn">Clear</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Sales History -->
+    <div class="card">
+        <h2 class="card-title">Sales History</h2>
+        <div class="table-container">
+            <table class="data-table" id="salesTable">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Barcode</th>
+                        <th>Product</th>
+                        <th>Qty</th>
+                        <th>Price</th>
+                        <th>Total</th>
+                        <th>Date &amp; Time</th>
+                    </tr>
+                </thead>
+                <tbody id="salesTableBody">
+                    <tr><td colspan="7" class="loading">Loading sales...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="toast" id="toast"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Tab Switching ──
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+        if (btn.dataset.tab === 'sales') loadSales();
+    });
+});
+
+// ── Load Stats ──
+async function loadStats() {
+    try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        document.getElementById('statProducts').textContent = data.total_products;
+        document.getElementById('statSales').textContent = '$' + data.total_sales.toFixed(2);
+        document.getElementById('statTransactions').textContent = data.total_transactions;
+        document.getElementById('statLowStock').textContent = data.low_stock;
+    } catch (e) { console.error(e); }
+}
+
+// ── Load Products ──
+async function loadProducts() {
+    try {
+        const res = await fetch('/api/products');
+        const products = await res.json();
+        const tbody = document.getElementById('productTableBody');
+        document.getElementById('productCount').textContent = products.length;
+
+        if (products.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="empty">No products found. Add one above.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = products.map((p, i) => `
+            <tr>
+                <td>${i + 1}</td>
+                <td class="mono">${p.barcode}</td>
+                <td>${p.name}</td>
+                <td>${p.category || '-'}</td>
+                <td>${p.brand || '-'}</td>
+                <td>$${parseFloat(p.price).toFixed(2)}</td>
+                <td class="${p.quantity <= 5 ? 'stock-low' : 'stock-ok'}">${p.quantity}</td>
+                <td>${p.supplier || '-'}</td>
+                <td>${p.expiry_date || '-'}</td>
+                <td class="actions">
+                    <button class="btn-icon" onclick="editProduct(${p.id})" title="Edit">✏️</button>
+                    <button class="btn-icon" onclick="deleteProduct(${p.id})" title="Delete">🗑️</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// ── Load Sales ──
+async function loadSales() {
+    try {
+        const res = await fetch('/api/sales');
+        const sales = await res.json();
+        const tbody = document.getElementById('salesTableBody');
+
+        if (sales.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty">No sales recorded yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = sales.map((s, i) => `
+            <tr>
+                <td>${i + 1}</td>
+                <td class="mono">${s.barcode}</td>
+                <td>${s.product_name}</td>
+                <td>${s.quantity}</td>
+                <td>$${parseFloat(s.price).toFixed(2)}</td>
+                <td>$${parseFloat(s.total).toFixed(2)}</td>
+                <td>${s.sold_at}</td>
+            </tr>
+        `).join('');
+    } catch (e) { console.error(e); }
+}
+
+// ── Product Form Submit ──
+document.getElementById('productForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('productId').value;
+    const data = {
+        barcode: document.getElementById('barcode').value.trim(),
+        name: document.getElementById('name').value.trim(),
+        category: document.getElementById('category').value.trim(),
+        brand: document.getElementById('brand').value.trim(),
+        price: document.getElementById('price').value || 0,
+        quantity: document.getElementById('quantity').value || 0,
+        supplier: document.getElementById('supplier').value.trim(),
+        expiry_date: document.getElementById('expiry_date').value
+    };
+
+    try {
+        const url = id ? `/api/products/${id}` : '/api/products';
+        const method = id ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+            showToast(result.message, 'success');
+            clearProductForm();
+            loadProducts();
+            loadStats();
+        } else {
+            showToast(result.message, 'error');
+        }
+    } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+    }
+});
+
+// ── Edit Product ──
+async function editProduct(id) {
+    const products = await (await fetch('/api/products')).json();
+    const p = products.find(x => x.id === id);
+    if (!p) return;
+    document.getElementById('productId').value = p.id;
+    document.getElementById('barcode').value = p.barcode;
+    document.getElementById('name').value = p.name;
+    document.getElementById('category').value = p.category || '';
+    document.getElementById('brand').value = p.brand || '';
+    document.getElementById('price').value = p.price;
+    document.getElementById('quantity').value = p.quantity;
+    document.getElementById('supplier').value = p.supplier || '';
+    document.getElementById('expiry_date').value = p.expiry_date || '';
+    document.getElementById('saveBtn').textContent = '💾 Update Product';
+    document.getElementById('productForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Delete Product ──
+async function deleteProduct(id) {
+    if (!confirm('Delete this product?')) return;
+    const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
+    const result = await res.json();
+    if (result.status === 'success') {
+        showToast('Product deleted', 'success');
+        loadProducts();
+        loadStats();
+    }
+}
+
+// ── Clear Form ──
+function clearProductForm() {
+    document.getElementById('productForm').reset();
+    document.getElementById('productId').value = '';
+    document.getElementById('saveBtn').textContent = '💾 Save Product';
+}
+document.getElementById('clearBtn').addEventListener('click', clearProductForm);
+
+// ── Search Products ──
+document.getElementById('searchProduct').addEventListener('input', function() {
+    const term = this.value.toLowerCase();
+    document.querySelectorAll('#productTableBody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(term) ? '' : 'none';
+    });
+});
+
+// ── Sale Form ──
+document.getElementById('saleForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {
+        barcode: document.getElementById('saleBarcode').value.trim(),
+        quantity: parseInt(document.getElementById('saleQuantity').value) || 1
+    };
+    try {
+        const res = await fetch('/api/sales', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.status === 'success') {
+            showToast(result.message, 'success');
+            document.getElementById('saleForm').reset();
+            loadSales();
+            loadProducts();
+            loadStats();
+        } else {
+            showToast(result.message, 'error');
+        }
+    } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+    }
+});
+document.getElementById('clearSaleBtn').addEventListener('click', () => {
+    document.getElementById('saleForm').reset();
+});
+
+// ── Camera Scanner ──
+let cameraStream = null;
+let scanInterval = null;
+
+document.getElementById('startCameraBtn').addEventListener('click', async () => {
+    try {
+        document.getElementById('statusText').textContent = 'Starting camera...';
+        document.getElementById('statusDot').className = 'status-dot starting';
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: 640, height: 480 }
+        });
+        const video = document.getElementById('cameraFeed');
+        video.srcObject = cameraStream;
+        document.getElementById('cameraPlaceholder').style.display = 'none';
+        document.getElementById('startCameraBtn').disabled = true;
+        document.getElementById('stopCameraBtn').disabled = false;
+        document.getElementById('scanAndSaveBtn').disabled = false;
+        document.getElementById('statusText').textContent = 'Camera active. Scanning...';
+        document.getElementById('statusDot').className = 'status-dot active';
+
+        // Auto-scan every 1.5 seconds
+        scanInterval = setInterval(scanFrame, 1500);
+    } catch (err) {
+        document.getElementById('statusText').textContent = 'Camera error: ' + err.message;
+        document.getElementById('statusDot').className = 'status-dot error';
+    }
+});
+
+document.getElementById('stopCameraBtn').addEventListener('click', () => {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+    }
+    if (scanInterval) {
+        clearInterval(scanInterval);
+        scanInterval = null;
+    }
+    document.getElementById('cameraFeed').srcObject = null;
+    document.getElementById('cameraPlaceholder').style.display = 'flex';
+    document.getElementById('startCameraBtn').disabled = false;
+    document.getElementById('stopCameraBtn').disabled = true;
+    document.getElementById('scanAndSaveBtn').disabled = true;
+    document.getElementById('statusText').textContent = 'Camera stopped.';
+    document.getElementById('statusDot').className = 'status-dot';
+});
+
+// ── Upload Image Scanner ──
+document.getElementById('uploadBtn').addEventListener('click', () => {
+    document.getElementById('imageUpload').click();
+});
+
+document.getElementById('imageUpload').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('image', file);
+    await processScan(formData);
+    e.target.value = '';
+});
+
+// ── Scan Frame from Camera ──
+async function scanFrame() {
+    const video = document.getElementById('cameraFeed');
+    if (!video.videoWidth) return;
+    const canvas = document.getElementById('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    canvas.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append('image', blob, 'frame.png');
+        await processScan(formData);
+    }, 'image/png');
+}
+
+// ── Process Scan Response ──
+async function processScan(formData) {
+    try {
+        const res = await fetch('/api/scan', { method: 'POST', body: formData });
+        const data = await res.json();
+        const resultDiv = document.getElementById('scanResult');
+
+        if (data.barcode) {
+            document.getElementById('scanBarcodeValue').textContent = data.barcode;
+            if (data.product) {
+                document.getElementById('scanProductInfo').textContent =
+                    ` → ${data.product.name} | $${parseFloat(data.product.price).toFixed(2)} | Qty: ${data.product.quantity}`;
+            } else {
+                document.getElementById('scanProductInfo').textContent = ' → (Not in inventory)';
+            }
+            resultDiv.style.display = 'flex';
+            document.getElementById('statusText').textContent = `Found: ${data.barcode}`;
+            document.getElementById('statusDot').className = 'status-dot found';
+
+            // Auto-fill product form
+            document.getElementById('barcode').value = data.barcode;
+            if (data.product) {
+                document.getElementById('name').value = data.product.name;
+                document.getElementById('category').value = data.product.category || '';
+                document.getElementById('brand').value = data.product.brand || '';
+                document.getElementById('price').value = data.product.price;
+                document.getElementById('quantity').value = data.product.quantity;
+                document.getElementById('supplier').value = data.product.supplier || '';
+                document.getElementById('expiry_date').value = data.product.expiry_date || '';
+            }
+        } else {
+            document.getElementById('statusText').textContent = 'No barcode detected. Keep scanning...';
+        }
+    } catch (err) {
+        console.error('Scan error:', err);
+    }
+}
+
+// ── Scan & Save Button ──
+document.getElementById('scanAndSaveBtn').addEventListener('click', () => {
+    document.getElementById('productForm').requestSubmit();
+});
+
+// ── Toast ──
+function showToast(msg, type = 'success') {
+    const toast = document.getElementById('toast');
+    toast.textContent = msg;
+    toast.className = 'toast show ' + type;
+    setTimeout(() => toast.className = 'toast', 3000);
+}
+
+// ── Init ──
+loadStats();
+loadProducts();
+</script>
+{% endblock %}
