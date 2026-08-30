@@ -3,7 +3,7 @@ services:
     name: smart-barcode-scanner
     runtime: python
     plan: free
-    buildCommand: "pip install -r requirements.txt"
+    buildCommand: "apt-get update && apt-get install -y libzbar0 && pip install -r requirements.txt"
     startCommand: "gunicorn app_web:app --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHON_VERSION
