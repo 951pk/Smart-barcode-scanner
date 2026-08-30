@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import cv2
 import numpy as np
-from pyzbar.pyzbar import decode
+import zxingcpp
 import sqlite3
 import os
 import hashlib
@@ -199,9 +199,9 @@ def scan_barcode():
     if img is None:
         return jsonify({'status': 'error', 'message': 'Invalid image'}), 400
 
-    barcodes = decode(img)
-    if barcodes:
-        barcode_data = barcodes[0].data.decode('utf-8')
+       results = zxingcpp.read_barcodes(img)
+    if results:
+        barcode_data = results[0].text
         # Check if product exists
         conn = get_db()
         product = conn.execute('SELECT * FROM products WHERE barcode = ?', (barcode_data,)).fetchone()
